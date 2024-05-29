@@ -13,6 +13,7 @@ from fpdf import FPDF
 import io
 
 # Function to combine chunk files into a single model file
+
 def combine_files(output_path, input_dir, file_base, file_ext):
     """Combines smaller chunk files into a single file.
 
@@ -32,9 +33,14 @@ def combine_files(output_path, input_dir, file_base, file_ext):
                 output_f.write(chunk_f.read())
             chunk_num += 1
 
-# Combine the model files
-combine_files('recombined_model.h5', 'path_to_chunks', 'inceptinv1', '.h5')
+# Combine model files
+combine_files('recombined_model.h5', 'model_chunks', 'inceptinv1', '.h5')
 
+# Wait until the file is completely written
+while not os.path.exists('recombined_model.h5'):
+    time.sleep(1)
+
+# Register custom metrics
 @tf.keras.utils.register_keras_serializable()
 def top_3_accuracy(y_true, y_pred):
     return top_k_categorical_accuracy(y_true, y_pred, k=3)
@@ -43,10 +49,23 @@ def top_3_accuracy(y_true, y_pred):
 def top_2_accuracy(y_true, y_pred):
     return top_k_categorical_accuracy(y_true, y_pred, k=2)
 
-# Load the model once at the start
+# Load the combined model
 model_path = 'recombined_model.h5'
 model = load_model(model_path)
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy', top_3_accuracy, top_2_accuracy])
+
+
+def predict(image):
+    img = img_to_array(image)
+    img = img / 255.0
+    img = smart_resize(img, (380, 380))  # Resize the image
+    img = np.expand_dims(img, axis=0)
+    predictions = model.predict(img)
+    return predictions
+
+
+
+
 
 def predict(image):
     img = img_to_array(image)
@@ -193,5 +212,7 @@ if uploaded_file is not None:
         )
 
 # Footer with developer names and LinkedIn link
-footer = "Developed by Sumanth Nimmagadda, Kiran Alex Challagiri, and Bakka Samuel Abhishek. Connect with us on [LinkedIn](https://www.linkedin.com/in/s)."
+footer = "Developed by Sumanth Nimmagadda, Kiran Alex Challagiri, and Bakka Samuel Abhishek. Connect with us on [LinkedIn](https://www.linkedin.com/in/sumanth-nimmagadda-472455221/)."
+st.markdown("---")
 st.markdown(footer)
+st.warning("Disclaimer: This is a demo product for educational purposes only. The classification results are for demonstration purposes and may not be accurate. Please consult a medical professional for diagnosis and treatment.", icon='⚠️')
