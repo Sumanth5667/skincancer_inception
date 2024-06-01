@@ -18,13 +18,14 @@ file_id = '1MgaxT_U6Y7NUbiYUdxje7lY22-yhSDNV'
 model_path = 'inceptinv1.h5'
 
 # Function to download the model from Google Drive
-def download_model(file_id, output_path):
-    url = f'https://drive.google.com/uc?id={file_id}'
-    gdown.download(url, output_path, quiet=False)
-
-# Download and load the model once at the start
-if not os.path.exists(model_path):
-    download_model(file_id, model_path)
+@st.cache_resource
+def download_and_load_model(file_id, output_path):
+    if not os.path.exists(output_path):
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, output_path, quiet=False)
+    model = load_model(output_path)
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy', top_3_accuracy, top_2_accuracy])
+    return model
 
 @tf.keras.utils.register_keras_serializable()
 def top_3_accuracy(y_true, y_pred):
@@ -34,19 +35,19 @@ def top_3_accuracy(y_true, y_pred):
 def top_2_accuracy(y_true, y_pred):
     return top_k_categorical_accuracy(y_true, y_pred, k=2)
 
-# Load the model
-model = load_model(model_path)
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy', top_3_accuracy, top_2_accuracy])
+# Load the model with caching
+model = download_and_load_model(file_id, model_path)
 
-def predict(image):
-    img = img_to_array(image)
+@st.cache_data
+def predict(_image):
+    img = img_to_array(_image)
     img = img / 255.0
     img = smart_resize(img, (380, 380))  # Resize the image
     img = np.expand_dims(img, axis=0)
     predictions = model.predict(img)
     return predictions
 
-def generate_pdf(user_name, user_location, gender, date_of_birth, lesion_area, current_time, image, predictions, top_3_classes, top_3_probs):
+def generate_pdf(user_name, user_location, gender, date_of_birth, lesion_area, current_time, _image, predictions, top_3_classes, top_3_probs):
     pdf = FPDF()
     pdf.add_page()
 
@@ -73,7 +74,7 @@ def generate_pdf(user_name, user_location, gender, date_of_birth, lesion_area, c
 
     # Add image to PDF
     image_path = "temp_image.png"
-    image.save(image_path)
+    _image.save(image_path)
     pdf.image(image_path, x=10, y=None, w=100)
     pdf.ln(10)  # Space after the image
 
@@ -185,4 +186,5 @@ if uploaded_file is not None:
 # Footer with developer names and LinkedIn link
 footer = "Developed by Sumanth Nimmagadda, Kiran Alex Challagiri, and Bakka Samuel Abhishek. Connect with us on [LinkedIn](https://www.linkedin.com/in/sumanth-nimmagadda-472455221/)."
 st.markdown("---")
-
+st.markdown(footer)
+st.warning("Disclaimer: This is a demo product for educational purposes only. The classification results are for demonstration purposes and may not be accurate. Please consult a medical professional for diagnosis and treatment.", icon='⚠️')
